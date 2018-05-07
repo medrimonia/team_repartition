@@ -1,12 +1,24 @@
+#!/bin/python3
+
 # DISCLAIMER: this code is not optimized at all
 
-nb_teams=20
+import random
+
+nb_teams=8
 nb_rounds=6
-games_by_round=2
-teams_by_game=5#Kid size
+games_by_round=1
+teams_by_game=4
 
 # A game contains two set of teamIds ordered by position
 # A round contains one or multiple games
+def displayTournament(tournament):
+    for round_idx in range(len(tournament)):
+        r = tournament[round_idx]
+        print("* Round " + str(round_idx))
+        for game_idx in range(len(r)):
+            print ("** Game " + str(game_idx)) 
+            game = r[game_idx]
+            print (str(game[0]) + " vs " + str(game[1]))
 
 # Return a dictionary with idx -> nb_occurences at idx <= position_idx
 def getOccurences(rounds, position_idx):
@@ -24,8 +36,8 @@ def getOccurences(rounds, position_idx):
 # matched with 'team_id'
 def getNbCoop(tournament, team_id):
     nb_coop = {}
-    for team_id in range(nb_teams):
-        nb_coop[team_id] = 0
+    for other_team in range(nb_teams):
+        nb_coop[other_team] = 0
     for r in tournament:
         for g in r:
             for side in g:
@@ -38,8 +50,8 @@ def getNbCoop(tournament, team_id):
 # matched with 'team_id'
 def getNbOpponents(tournament, team_id):
     nb_opp = {}
-    for team_id in range(nb_teams):
-        nb_opp[team_id] = 0
+    for other_team in range(nb_teams):
+        nb_opp[other_team] = 0
     for r in tournament:
         for g in r:
             for side_idx in range(2):
@@ -62,23 +74,26 @@ def getCost(tournament, new_team, allies, opponents):
     cost = 0
     for team in range(nb_teams):
         if team != new_team:
-            cost += nb_coop[team] ** 2 + nb_opp[team] ** 2
+            coop = nb_coop[team]
+            opp = nb_opp[team]
+            avg = (coop + opp) / 2.0
+            cost += coop ** 2 + opp ** 2
     return cost
 
 # Return the list of teams allowed to be placed at positiion_idx for this round
 # Constraint: Only teams which have appeared the least times at a position index
 # lower or equal to position_idx are allowed to be placed here
 def allowedTeams(rounds, position_idx):
-    games_by_team = getOccurences(rounds, position_idx)
-    min_occurences = nb_rounds# A team cannot play more than once by round
+    occ_by_team = getOccurences(rounds,position_idx)
+    min_occ = nb_rounds# Max score per round: 1
     allowed_teams = []
     for team_id in range(nb_teams):
-        if games_by_team[team_id] == min_occurences:
+        if occ_by_team[team_id] == min_occ:
             allowed_teams += [team_id]
-        elif games_by_team[team_id] < min_occurences:
+        elif occ_by_team[team_id] < min_occ:
             # Reset list of allowed teams if we found a team who played less
             allowed_teams = [team_id]
-            min_occurences = games_by_team[team_id]
+            min_occ = occ_by_team[team_id]
     return allowed_teams
 
 def teamsInRound(r):
@@ -102,6 +117,7 @@ def getNextRound(rounds):
         for game_id in range(games_by_round):
             for side in range(2):# For every side of the elements
                 allowed_teams = allowedTeams(rounds + [current_round], pos_idx)
+                random.shuffle(allowed_teams)
                 filtered_teams = []
                 teams_in_round = teamsInRound(current_round)
                 for team in allowed_teams:
@@ -111,7 +127,14 @@ def getNextRound(rounds):
                 # -> need_fix
                 if len(filtered_teams) == 0:
                     print("Failed to finish creating round")
+                    print("Actual tournament: ")
+                    displayTournament(rounds)
                     print("Current round: " + str(current_round))
+                    print("AllowedTeams: " + str(allowed_teams))
+                    print("occurences(...," + str(pos_idx) + ")")
+                    print("Modified tournament:")
+                    displayTournament(rounds + [current_round])
+                    print(getOccurences(rounds + [current_round], pos_idx))
                     exit(1)
                 # Computing opponents and allies
                 opp_side = (side +1) % 2
@@ -135,25 +158,65 @@ def createTournament():
         tournament += [getNextRound(tournament)]
     return tournament
 
-def displayTournament(tournament):
-    for round_idx in range(len(tournament)):
-        r = tournament[round_idx]
-        print("* Round " + str(round_idx))
-        for game_idx in range(len(r)):
-            print ("** Game " + str(game_idx)) 
-            game = r[game_idx]
-            print (str(game[0]) + " vs " + str(game[1]))
+# Return a dictonary with for each team: the number of times it played at each
+# position
+def getPositionStats(tournament):
+    dic = {}
+    for team_id in range(nb_teams):
+        dic[team_id] = []
+        for pos_idx in range(teams_by_game):
+            dic[team_id] += [0]
+    for r in tournament:
+        for game in r:
+            for side in game:
+                for pos_idx in range(len(side)):
+                    team_id = side[pos_idx]
+                    dic[team_id][pos_idx] += 1
+    return dic
 
-exampleGame1 = [[1,2],[3,4]]
-exampleGame2 = [[3,2],[4,0]]
-exampleGame3 = [[0,1],[2,4]]
+def displayPositionStats(pos_stats):
+    for (team_id, team_stats) in pos_stats.items():
+        print("%02d -> %d games: detail %s"  % (team_id,sum(team_stats), str(team_stats)))
 
-exampleRound1 = [exampleGame1, exampleGame2]
-exampleRound2 = [exampleGame3]
 
-rounds = [exampleRound1, exampleRound2]
+# Return a dictonary with for each team, the number of time it played
+# with/against each other team
+def getMatesStats(tournament):
+    dic = {}
+    for team_id in range(nb_teams):
+        dic[team_id] = {}
+        for other_team_id in range(nb_teams):
+            if other_team_id != team_id:
+                dic[team_id][other_team_id] = [0,0]#[with/against]
+    for r in tournament:
+        for game in r:
+            # Count partnerships
+            for side_idx in range(2):
+                with_side = game[side_idx]
+                opp_side = game[(side_idx + 1) % 2]
+                for team_id in with_side:
+                    for with_id in with_side:
+                        if (team_id < with_id):# Avoid to count twice partners (or self)
+                            dic[team_id][with_id][0] += 1
+                            dic[with_id][team_id][0] += 1
+                    for opp_id in opp_side:
+                        if (team_id < opp_id):# Avoid to count twice opponents
+                            dic[team_id][opp_id][1] += 1
+                            dic[opp_id][team_id][1] += 1
+    return dic
 
-#print getOccurences(rounds, 1)
-#print teamsInRound(exampleRound2)
+def displayMatesStats(mates_stats):
+    for team_id in range(nb_teams):
+        for other_team_id in range(team_id+1, nb_teams):
+            w = mates_stats[team_id][other_team_id][0]
+            a = mates_stats[team_id][other_team_id][1]
+            print("(%02d,%02d) : %d with / %d against"  % (team_id, other_team_id, w, a))
 
-displayTournament(createTournament())
+tournament = createTournament()
+displayTournament(tournament)
+
+pos_stats = getPositionStats(tournament)
+displayPositionStats(pos_stats)
+
+mates_stats = getMatesStats(tournament)
+displayMatesStats(mates_stats)
