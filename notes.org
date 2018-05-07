@@ -1,0 +1,27 @@
+* Drop-In games
+** General Ideas
+*** Numbers
+**** 2 games per team per day per team
+**** 5 fields
+- 2 kids
+  - 20 teams involved
+- 1 teen
+  - 8 teams involved
+- 2 adults
+  - 8 teams involved
+*** Avoid teams to be overselected
+- Avoid complexity
+  - Designate teams by ids from 1 to n
+  - Order teams randomly at start
+- Use up to 5 ranks for each team (kid)
+  - If one of the team is composed of only 'k' robots, allow only the 'k' with
+    lowest id opponents to play
+- Need to balance the number of occurences of each team at each level
+  - 
+*** Avoid matching teams together several times
+** Kid-Size
+** Teen-Size
+** Adult-Size
+*** Round 1:
+**** Game 1: [1,8] vs [2,7]
+**** Game 2: [3,6] vs [4,5]
