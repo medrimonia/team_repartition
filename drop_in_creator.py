@@ -10,10 +10,14 @@
 import random
 import sys
 
-nb_teams=18
-nb_rounds=6
-games_by_round=2
-teams_by_game=5
+import json
+
+import argparse
+
+nb_teams=6
+nb_rounds=10
+games_by_round=1
+teams_by_game=3
 
 # A game contains two set of teamIds ordered by position
 # A round contains one or multiple games
@@ -28,16 +32,14 @@ def displayTournament(tournament):
 
 # 'tournament' contains the matches with id for teams
 # 'teams' is used to provide the names of the teams
-#
-# Content of file is:
-# teamName, 
 def writeCSVTournament(tournament, teams, path):
     out = open(path, "w")
     for round_idx in range(len(tournament)):
         r = tournament[round_idx]
         out.write("Round " + str(round_idx) + '\n')
         for game_idx in range(len(r)):
-            out.write("Game " + str(game_idx) + '\n')
+            if len(r) > 1:
+                out.write("Game " + str(game_idx) + '\n')
             game = r[game_idx]
             for team_idx in range(len(game[0])):
                 team1 = teams[game[0][team_idx]]
@@ -45,6 +47,18 @@ def writeCSVTournament(tournament, teams, path):
                 line = "A" + str(team_idx+1) +  "," + team1;
                 line =  line +  ",B" + str(team_idx+1) + "," + team2 + '\n'
                 out.write(line)
+
+def writeJsonTournament(tournament, path):
+    with open(path, 'w') as outfile:
+        json.dump(tournament, outfile)
+
+def saveTournament(tournament, teams, path):
+    if path.endswith("json"):
+        writeJsonTournament(tournament, path)
+    elif path.endswith("csv"):
+        writeCSVTournament(tournament, teams, path)
+    else:
+        raise Exception("Unknown extension for '" + path + "'")
     
 
 # Return a dictionary with idx -> nb_occurences at idx <= position_idx
@@ -208,7 +222,6 @@ def displayPositionStats(pos_stats):
     for (team_id, team_stats) in pos_stats.items():
         print("%02d -> %d games: detail %s"  % (team_id,sum(team_stats), str(team_stats)))
 
-
 # Return a dictonary with for each team, the number of time it played
 # with/against each other team
 def getMatesStats(tournament):
@@ -235,32 +248,91 @@ def getMatesStats(tournament):
                             dic[opp_id][team_id][1] += 1
     return dic
 
+def avgGamesByTeam():
+    nb_games = nb_rounds * games_by_round;
+    return nb_games * 2 * teams_by_game / nb_teams
+
 def displayMatesStats(mates_stats):
+    average_with = (teams_by_game -1) * avgGamesByTeam() / (nb_teams -1)
+    average_against = teams_by_game * avgGamesByTeam() / (nb_teams - 1)
+    print ("averageResult",average_with,"/",average_against)
+    histogram_with = {}
+    histogram_against = {}
     for team_id in range(nb_teams):
         for other_team_id in range(team_id+1, nb_teams):
             w = mates_stats[team_id][other_team_id][0]
             a = mates_stats[team_id][other_team_id][1]
-            print("(%02d,%02d) : %d with / %d against"  % (team_id, other_team_id, w, a))
+            print("(%02d,%02d) : %d with / %d against"  % (team_id, other_team_id, w, a)) 
+            if w in histogram_with: 
+                histogram_with[w] += 1
+            else:
+                histogram_with[w] = 1
+            if a in histogram_against: 
+                histogram_against[a] += 1
+            else:
+                histogram_against[a] = 1
+    print("with_stats:", histogram_with)
+    print("against_stats:", histogram_against)
+
+# Check that there is no team playing twice in a round
+def checkRound(r):
+    occurences = {}
+    for team in range(nb_teams):
+        occurences[team] = 0
+    for game in r:
+        for side in game:
+            for team in side:
+                occurences[team] += 1
+    for team in range(nb_teams):
+        if occurences[team] > 1:
+            print ("ERROR: Team", team, " play twice in round", r)
+
+# Check that there is no round where a team plays twice
+def checkTournament(tournament):
+    for r in tournament:
+        checkRound(r)
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description='Process arguments')
+    parser.add_argument('-s','--save', nargs=1, help="Save tournament to file")
+    parser.add_argument('-l','--load', nargs=1, help="Load tournament from file")
+    parser.add_argument('-t','--teams', nargs=1, help="Path containing teams list")
+    parser.add_argument('-v','--verbose', action="store_true", help="Display tournament")
+    parser.add_argument('--pos_stats', action="store_true",  help="Display position stats")
+    parser.add_argument('--mates_stats', action="store_true",  help="Display mates stats")
+
+    args = parser.parse_args()
+
+    # Load teams if specified
     teams = []
-
-    # Read team names from file if required 
-    if len(sys.argv) > 1: 
-        teams_file = open(sys.argv[1], 'r')
-        for line in teams_file.readlines():
-            teams +=  [line.strip()]
+    if args.teams:
+        with open(args.teams[0], "r") as input_file:
+            for line in input_file.readlines():
+                teams +=  [line.strip()]
         nb_teams = len(teams)
+        print ("nb_teams", nb_teams)
 
-    tournament = createTournament()
-    displayTournament(tournament)
+    # Load tournament if specified, otherwise generate it
+    tournament = []
+    if args.load:
+        with open(args.load[0],"r") as json_data:
+            tournament = json.load(json_data)
+    else:
+        tournament = createTournament()
 
-    pos_stats = getPositionStats(tournament)
-    displayPositionStats(pos_stats)
+    checkTournament(tournament)
 
-    mates_stats = getMatesStats(tournament)
-    displayMatesStats(mates_stats)
+    if args.verbose:
+        displayTournament(tournament)
 
-    if (len(teams) > 0) :
-        writeCSVTournament(tournament, teams, "tournament.csv")
+    if args.save:
+        saveTournament(tournament, teams, args.save[0])
+        
+    if args.pos_stats:
+        pos_stats = getPositionStats(tournament)
+        displayPositionStats(pos_stats)
+
+    if args.mates_stats:
+        mates_stats = getMatesStats(tournament)
+        displayMatesStats(mates_stats)
