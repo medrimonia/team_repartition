@@ -1,13 +1,24 @@
-#!/bin/python3
+#!/usr/bin/python3
 
 # DISCLAIMER: this code is not optimized at all
 
+# TODO Mandatory
+# - Support uncomplete teams
+#   - e.g 2 simultaneous round with 5 teams by game and 18 teams
+#     - 1 round as 5 vs 5, 1 round as 4 vs 4
+#
+# TODO Optional:
+# - Write a csv file with the stats
+# - Generate multiple tournaments and take the best one
+#   - Require a cost function on the whole tournament
+
 import random
+import sys
 
 nb_teams=8
 nb_rounds=6
-games_by_round=1
-teams_by_game=4
+games_by_round=2
+teams_by_game=5
 
 # A game contains two set of teamIds ordered by position
 # A round contains one or multiple games
@@ -19,6 +30,27 @@ def displayTournament(tournament):
             print ("** Game " + str(game_idx)) 
             game = r[game_idx]
             print (str(game[0]) + " vs " + str(game[1]))
+
+# 'tournament' contains the matches with id for teams
+# 'teams' is used to provide the names of the teams
+#
+# Content of file is:
+# teamName, 
+def writeCSVTournament(tournament, teams, path):
+    out = open(path, "w")
+    for round_idx in range(len(tournament)):
+        r = tournament[round_idx]
+        out.write("Round " + str(round_idx) + '\n')
+        for game_idx in range(len(r)):
+            out.write("Game " + str(game_idx) + '\n')
+            game = r[game_idx]
+            for team_idx in range(len(game[0])):
+                team1 = teams[game[0][team_idx]]
+                team2 = teams[game[1][team_idx]]
+                line = "A" + str(team_idx+1) +  "," + team1;
+                line =  line +  ",B" + str(team_idx+1) + "," + team2 + '\n'
+                out.write(line)
+    
 
 # Return a dictionary with idx -> nb_occurences at idx <= position_idx
 def getOccurences(rounds, position_idx):
@@ -212,11 +244,25 @@ def displayMatesStats(mates_stats):
             a = mates_stats[team_id][other_team_id][1]
             print("(%02d,%02d) : %d with / %d against"  % (team_id, other_team_id, w, a))
 
-tournament = createTournament()
-displayTournament(tournament)
+if __name__ == "__main__":
 
-pos_stats = getPositionStats(tournament)
-displayPositionStats(pos_stats)
+    teams = []
 
-mates_stats = getMatesStats(tournament)
-displayMatesStats(mates_stats)
+    # Read team names from file if required 
+    if len(sys.argv) > 1: 
+        teams_file = open(sys.argv[1], 'r')
+        for line in teams_file.readlines():
+            teams +=  [line.strip()]
+        nb_teams = len(teams)
+
+    tournament = createTournament()
+    displayTournament(tournament)
+
+    pos_stats = getPositionStats(tournament)
+    displayPositionStats(pos_stats)
+
+    mates_stats = getMatesStats(tournament)
+    displayMatesStats(mates_stats)
+
+    if (len(teams) > 0) :
+        writeCSVTournament(tournament, teams, "tournament.csv")
