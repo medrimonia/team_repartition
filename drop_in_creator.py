@@ -2,11 +2,6 @@
 
 # DISCLAIMER: this code is not optimized at all
 
-# TODO Mandatory
-# - Support uncomplete teams
-#   - e.g 2 simultaneous round with 5 teams by game and 18 teams
-#     - 1 round as 5 vs 5, 1 round as 4 vs 4
-#
 # TODO Optional:
 # - Write a csv file with the stats
 # - Generate multiple tournaments and take the best one
@@ -15,7 +10,7 @@
 import random
 import sys
 
-nb_teams=8
+nb_teams=18
 nb_rounds=6
 games_by_round=2
 teams_by_game=5
@@ -112,7 +107,7 @@ def getCost(tournament, new_team, allies, opponents):
             cost += coop ** 2 + opp ** 2
     return cost
 
-# Return the list of teams allowed to be placed at positiion_idx for this round
+# Return the list of teams allowed to be placed at position_idx for this round
 # Constraint: Only teams which have appeared the least times at a position index
 # lower or equal to position_idx are allowed to be placed here
 def allowedTeams(rounds, position_idx):
@@ -147,6 +142,9 @@ def getNextRound(rounds):
     # Ordering placement of teams by pos_idx
     for pos_idx in range(teams_by_game):
         for game_id in range(games_by_round):
+            # If there is not enough team to fill both teams, generate next game
+            if (len(teamsInRound(current_round)) + 2 > nb_teams):
+                continue
             for side in range(2):# For every side of the elements
                 allowed_teams = allowedTeams(rounds + [current_round], pos_idx)
                 random.shuffle(allowed_teams)
