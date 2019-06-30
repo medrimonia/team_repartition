@@ -295,10 +295,12 @@ def checkTournament(tournament):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Process arguments')
-    parser.add_argument('-s','--save', nargs=1, help="Save tournament to file")
     parser.add_argument('-l','--load', nargs=1, help="Load tournament from file")
+    parser.add_argument('-r','--rounds', nargs=1, type=int, help="Nb rounds in the game", default=10)
+    parser.add_argument('-s','--save', nargs=1, help="Save tournament to file")
     parser.add_argument('-t','--teams', nargs=1, help="Path containing teams list")
     parser.add_argument('-v','--verbose', action="store_true", help="Display tournament")
+    parser.add_argument('--teams_by_game', nargs=1, type = int, help="Number of teams in a single drop-in team")
     parser.add_argument('--pos_stats', action="store_true",  help="Display position stats")
     parser.add_argument('--mates_stats', action="store_true",  help="Display mates stats")
 
@@ -312,6 +314,10 @@ if __name__ == "__main__":
                 teams +=  [line.strip()]
         nb_teams = len(teams)
         print ("nb_teams", nb_teams)
+    if args.rounds:
+        nb_rounds = args.rounds[0]
+    if args.teams_by_game:
+        teams_by_game = args.teams_by_game[0]
 
     # Load tournament if specified, otherwise generate it
     tournament = []
